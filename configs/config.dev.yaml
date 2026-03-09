@@ -1,0 +1,17 @@
+server:
+  port: 50051
+
+redis:
+  addrs:
+    - "localhost:6379"
+  password: ""
+
+spanner:
+  project: "gorankd-dev"
+  instance: "dev-instance"
+  database: "ranking"
+  emulator_host: "localhost:9010"
+
+log:
+  level: "debug"
+  format: "text"

@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package ranking.v1;
+
+option go_package = "gorankd/api/proto/gen/rankingpb";
+
+service RankingService {
+  rpc UpdateScore(UpdateScoreRequest) returns (UpdateScoreResponse);
+  rpc GetRank(GetRankRequest) returns (GetRankResponse);
+  rpc GetTopN(GetTopNRequest) returns (GetTopNResponse);
+  rpc GetPlayerScore(GetPlayerScoreRequest) returns (GetPlayerScoreResponse);
+}
+
+message UpdateScoreRequest {
+  string player_id = 1;
+  double score = 2;
+}
+
+message UpdateScoreResponse {}
+
+message GetRankRequest {
+  string player_id = 1;
+}
+
+message GetRankResponse {
+  int64 rank = 1;
+}
+
+message GetTopNRequest {
+  int32 n = 1;
+}
+
+message GetTopNResponse {
+  repeated PlayerRank players = 1;
+}
+
+message PlayerRank {
+  string player_id = 1;
+  double score = 2;
+  int64 rank = 3;
+}
+
+message GetPlayerScoreRequest {
+  string player_id = 1;
+}
+
+message GetPlayerScoreResponse {
+  double score = 1;
+}

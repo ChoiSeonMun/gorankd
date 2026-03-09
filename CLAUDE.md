@@ -3,27 +3,54 @@
 
 ## 기술 스택
 - Language: Go 1.22+
+- Module: `gorankd` (go.mod)
 - Communication: gRPC + Protocol Buffers
 - Cache: Redis Cluster (ZADD/ZREVRANGE)
 - DB: Cloud Spanner (Emulator로 로컬 개발)
 - Infra: Docker, GKE
+- 주요 의존성: `google.golang.org/grpc`
+
+## API (gRPC)
+Proto 파일: `api/proto/ranking.proto` (package: `ranking.v1`)
+- `UpdateScore` - 플레이어 점수 업데이트
+- `GetRank` - 플레이어 순위 조회
+- `GetTopN` - 상위 N명 조회
+- `GetPlayerScore` - 플레이어 점수 조회
 
 ## 디렉토리 구조
 ```
 gorankd/
-├── cmd/server/          # main.go 진입점
+├── cmd/server/main.go         # 진입점 (slog, gRPC 서버, graceful shutdown)
 ├── internal/
-│   ├── ranking/         # 핵심 랭킹 비즈니스 로직
-│   ├── cache/           # Redis 클라이언트 래퍼
-│   ├── store/           # Spanner 클라이언트 래퍼
-│   └── server/          # gRPC 서버 핸들러
-├── api/proto/           # .proto 파일 + gen/ (생성 코드)
-├── pkg/                 # 외부 공개 가능한 공용 유틸
+│   ├── ranking/               # 핵심 랭킹 비즈니스 로직
+│   │   ├── interface.go       # Service 인터페이스, PlayerRank 타입
+│   │   └── service.go         # 구현체 (cache + store 의존)
+│   ├── cache/                 # Redis 클라이언트 래퍼
+│   │   ├── interface.go       # Cache 인터페이스, RankEntry 타입
+│   │   └── redis.go           # 구현체 (stub)
+│   ├── store/                 # Spanner 클라이언트 래퍼
+│   │   ├── interface.go       # Store 인터페이스, PlayerScore 타입
+│   │   └── spanner.go         # 구현체 (stub)
+│   └── server/                # gRPC 서버 핸들러
+│       └── grpc.go            # GRPCServer (ranking.Service 의존)
+├── api/proto/                 # .proto 파일
+│   ├── ranking.proto
+│   └── gen/                   # protoc 생성 코드 (go_package: gorankd/api/proto/gen/rankingpb)
+├── pkg/                       # 외부 공개 가능한 공용 유틸
 ├── deploy/
-│   ├── docker/          # Dockerfile, docker-compose
-│   └── k8s/             # GKE 매니페스트
-├── scripts/             # 빌드, proto-gen, 마이그레이션
-└── configs/             # 환경별 설정 파일
+│   ├── docker/                # Dockerfile (멀티스테이지), docker-compose.yml
+│   └── k8s/                   # GKE 매니페스트
+├── scripts/proto-gen.sh       # protoc 실행 스크립트
+├── configs/config.dev.yaml    # 로컬 개발 설정
+└── Makefile                   # proto-gen, build, run, test, lint
+```
+
+## 아키텍처 레이어
+```
+gRPC Handler (internal/server)
+  → ranking.Service (internal/ranking)
+    → cache.Cache (internal/cache)   # Redis - 실시간 순위 연산
+    → store.Store (internal/store)   # Spanner - 영속성
 ```
 
 ## 코드 컨벤션
@@ -64,5 +91,27 @@ gorankd/
 
 ## 로컬 개발 환경
 - Spanner Emulator는 실제 Spanner와 동작 차이 있음 (commit timestamp 등)
-- Redis Cluster 로컬 환경: docker-compose 7노드 구성 사용
+- Redis Cluster 로컬 환경: docker-compose 6노드 + init 컨테이너 구성 사용
 - proto 파일 변경 후 반드시 `make proto-gen` 실행 후 커밋
+- 로컬 실행: `make run` (포트 50051)
+- docker-compose: `docker compose -f deploy/docker/docker-compose.yml up`
+
+## Makefile 타겟
+- `make proto-gen` - protoc으로 Go 코드 생성
+- `make build` - `bin/gorankd` 바이너리 빌드
+- `make run` - 로컬 실행
+- `make test` - 테스트 실행
+- `make lint` - golangci-lint 실행
+
+## 현재 상태 (구현 진행도)
+- [x] 프로젝트 스캐폴딩 (디렉토리, go.mod, Makefile, Docker)
+- [x] Proto 파일 정의 (ranking.proto)
+- [x] 인터페이스 정의 (ranking, cache, store)
+- [x] 랭킹 서비스 구현체 (cache/store 연동 로직)
+- [x] gRPC 서버 진입점 (main.go, graceful shutdown)
+- [ ] proto-gen 실행 및 gRPC 핸들러 등록
+- [ ] Redis 클라이언트 구현 (cache/redis.go)
+- [ ] Spanner 클라이언트 구현 (store/spanner.go)
+- [ ] gRPC Interceptor (로깅, 메트릭)
+- [ ] 벤치마크 테스트
+- [ ] 설정 파일 로딩 (configs/config.dev.yaml → 구조체 바인딩)
