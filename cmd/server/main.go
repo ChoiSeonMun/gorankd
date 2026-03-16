@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	rankingpb "gorankd/api/proto/gen"
 	"gorankd/internal/cache"
 	"gorankd/internal/ranking"
 	"gorankd/internal/server"
@@ -28,10 +29,9 @@ func main() {
 	c := cache.NewRedisCache()
 	s := store.NewSpannerStore()
 	rankingSvc := ranking.NewService(c, s)
-	_ = server.NewGRPCServer(rankingSvc)
 
 	grpcServer := grpc.NewServer()
-	// TODO: register ranking service with grpcServer after proto-gen
+	rankingpb.RegisterRankingServiceServer(grpcServer, server.NewGRPCServer(rankingSvc))
 
 	addr := ":50051"
 	lis, err := net.Listen("tcp", addr)
